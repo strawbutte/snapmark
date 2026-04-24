@@ -1,0 +1,12 @@
+node_modules/
+
+*~
+.next/
+build/
+dist/
+.DS_Store
+yarn-debug.log*
+coverage/
+*.log
+*.swo
+.env.local
