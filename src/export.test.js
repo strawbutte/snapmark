@@ -20,6 +20,11 @@ describe('exportJSON', () => {
     const result = exportJSON([{ id: '1', url: 'https://a.com' }]);
     expect(result).toContain('\n  ');
   });
+
+  it('returns empty array JSON for empty input', () => {
+    const result = exportJSON([]);
+    expect(JSON.parse(result)).toEqual([]);
+  });
 });
 
 describe('exportMarkdown', () => {
@@ -46,6 +51,17 @@ describe('exportMarkdown', () => {
   it('includes description when present', () => {
     const result = exportMarkdown(makeBookmarks());
     expect(result).toContain('A site');
+  });
+
+  it('does not include description line when description is empty', () => {
+    const result = exportMarkdown(makeBookmarks());
+    // GitHub bookmark has empty description, should not add a blank description line
+    const githubSection = result.split('\n').filter(line => line.includes('GitHub'));
+    expect(githubSection.length).toBeGreaterThan(0);
+    // The line immediately after the GitHub link should not be an empty description
+    const githubLineIndex = result.split('\n').findIndex(line => line.includes('GitHub'));
+    const nextLine = result.split('\n')[githubLineIndex + 1];
+    expect(nextLine).not.toMatch(/^\s*> \s*$/);
   });
 });
 
