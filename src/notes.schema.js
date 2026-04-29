@@ -44,4 +44,15 @@ function stripInvalidNotes(bookmarks) {
   });
 }
 
-module.exports = { MAX_NOTE_LENGTH, validateNote, validateBookmarkNote, stripInvalidNotes };
+/**
+ * Truncate a note string to the maximum allowed length.
+ * Useful when importing notes from external sources that may exceed the limit.
+ * @param {string} note
+ * @returns {string}
+ */
+function truncateNote(note) {
+  if (typeof note !== 'string') return '';
+  return note.slice(0, MAX_NOTE_LENGTH);
+}
+
+module.exports = { MAX_NOTE_LENGTH, validateNote, validateBookmarkNote, stripInvalidNotes, truncateNote };
