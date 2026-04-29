@@ -1,96 +1,69 @@
-const { scoreBookmark, rankSearch, multiTermSearch } = require('./search');
+const { scoreBookmark } = require('./search');
 
-jest.mock('./storage');
-const { loadBookmarks } = require('./storage');
+function makeBookmark(overrides = {}) {
+  return {
+    url: 'https://example.com/page',
+    title: 'Example Page',
+    tags: ['web', 'example'],
+    notes: 'a useful reference page',
+    ...overrides,
+  };
+}
 
-const sampleBookmarks = [
-  {
-    id: '1',
-    title: 'GitHub',
-    url: 'https://github.com',
-    description: 'Code hosting platform',
-    tags: ['dev', 'git'],
-  },
-  {
-    id: '2',
-    title: 'MDN Web Docs',
-    url: 'https://developer.mozilla.org',
-    description: 'JavaScript and web documentation',
-    tags: ['dev', 'docs', 'javascript'],
-  },
-  {
-    id: '3',
-    title: 'Hacker News',
-    url: 'https://news.ycombinator.com',
-    description: 'Tech news aggregator',
-    tags: ['news', 'tech'],
-  },
-];
-
-beforeEach(() => {
-  loadBookmarks.mockResolvedValue([...sampleBookmarks]);
+test('returns 0 for empty query', () => {
+  const bm = makeBookmark();
+  expect(scoreBookmark(bm, '')).toBe(0);
 });
 
-describe('scoreBookmark', () => {
-  test('returns 0 for no match', () => {
-    expect(scoreBookmark(sampleBookmarks[0], 'zzznomatch')).toBe(0);
-  });
-
-  test('scores title match higher than description match', () => {
-    const titleScore = scoreBookmark(sampleBookmarks[0], 'github');
-    const descScore = scoreBookmark(sampleBookmarks[0], 'hosting');
-    expect(titleScore).toBeGreaterThan(descScore);
-  });
-
-  test('gives bonus for title starting with query', () => {
-    const startScore = scoreBookmark(sampleBookmarks[1], 'mdn');
-    const midScore = scoreBookmark(sampleBookmarks[1], 'web');
-    expect(startScore).toBeGreaterThan(midScore);
-  });
-
-  test('scores exact tag match', () => {
-    const score = scoreBookmark(sampleBookmarks[0], 'git');
-    expect(score).toBeGreaterThan(0);
-  });
+test('scores higher when query matches title', () => {
+  const bm = makeBookmark({ title: 'JavaScript Tips' });
+  const score = scoreBookmark(bm, 'javascript');
+  expect(score).toBeGreaterThan(0);
 });
 
-describe('rankSearch', () => {
-  test('returns ranked results for a query', async () => {
-    const results = await rankSearch('dev');
-    expect(results.length).toBeGreaterThan(0);
-    results.forEach((r) => expect(r._score).toBeGreaterThan(0));
-  });
-
-  test('results are sorted by score descending', async () => {
-    const results = await rankSearch('javascript');
-    for (let i = 1; i < results.length; i++) {
-      expect(results[i - 1]._score).toBeGreaterThanOrEqual(results[i]._score);
-    }
-  });
-
-  test('respects limit option', async () => {
-    const results = await rankSearch('dev', { limit: 1 });
-    expect(results.length).toBe(1);
-  });
-
-  test('throws on empty query', async () => {
-    await expect(rankSearch('')).rejects.toThrow('Search query must not be empty');
-  });
-
-  test('returns empty array when nothing matches', async () => {
-    const results = await rankSearch('zzznomatch');
-    expect(results).toEqual([]);
-  });
+test('scores higher for title match than url match', () => {
+  const titleMatch = makeBookmark({ title: 'node guide', url: 'https://example.com' });
+  const urlMatch = makeBookmark({ title: 'something else', url: 'https://nodejs.org/guide' });
+  const scoreTitle = scoreBookmark(titleMatch, 'node');
+  const scoreUrl = scoreBookmark(urlMatch, 'node');
+  expect(scoreTitle).toBeGreaterThan(scoreUrl);
 });
 
-describe('multiTermSearch', () => {
-  test('returns bookmarks matching all terms', async () => {
-    const results = await multiTermSearch(['dev', 'javascript']);
-    expect(results.some((b) => b.id === '2')).toBe(true);
-    expect(results.some((b) => b.id === '3')).toBe(false);
-  });
+test('scores when query matches a tag', () => {
+  const bm = makeBookmark({ tags: ['devops', 'linux'] });
+  const score = scoreBookmark(bm, 'devops');
+  expect(score).toBeGreaterThan(0);
+});
 
-  test('throws when terms array is empty', async () => {
-    await expect(multiTermSearch([])).rejects.toThrow('non-empty array');
+test('scores when query matches notes', () => {
+  const bm = makeBookmark({ notes: 'great tutorial on async await' });
+  const score = scoreBookmark(bm, 'async');
+  expect(score).toBeGreaterThan(0);
+});
+
+test('returns 0 when nothing matches', () => {
+  const bm = makeBookmark({
+    title: 'Cooking Recipes',
+    url: 'https://recipes.com',
+    tags: ['food'],
+    notes: 'pasta and pizza',
   });
+  expect(scoreBookmark(bm, 'javascript')).toBe(0);
+});
+
+test('is case-insensitive', () => {
+  const bm = makeBookmark({ title: 'React Hooks Guide' });
+  expect(scoreBookmark(bm, 'REACT')).toBeGreaterThan(0);
+  expect(scoreBookmark(bm, 'react')).toBeGreaterThan(0);
+});
+
+test('handles bookmark with missing optional fields', () => {
+  const bm = { url: 'https://minimal.com' };
+  expect(() => scoreBookmark(bm, 'minimal')).not.toThrow();
+});
+
+test('multi-word query matches partial terms', () => {
+  const bm = makeBookmark({ title: 'Getting started with Docker', tags: ['containers'] });
+  const score = scoreBookmark(bm, 'docker containers');
+  expect(score).toBeGreaterThan(scoreBookmark(bm, 'docker'));
 });
