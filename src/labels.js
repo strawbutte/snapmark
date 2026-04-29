@@ -46,4 +46,11 @@ function listLabels(bookmarks) {
   return counts;
 }
 
-module.exports = { VALID_LABELS, isValidLabel, setLabel, clearLabel, getLabel, filterByLabel, listLabels };
+/**
+ * Returns all bookmarks that have no label assigned.
+ */
+function filterUnlabeled(bookmarks) {
+  return bookmarks.filter(b => !b.label);
+}
+
+module.exports = { VALID_LABELS, isValidLabel, setLabel, clearLabel, getLabel, filterByLabel, listLabels, filterUnlabeled };
